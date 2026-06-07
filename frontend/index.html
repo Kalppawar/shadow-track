@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Track</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/earcut@2.2.4/dist/earcut.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open controls" aria-expanded="false" aria-controls="controlPanel">☰</button>
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+    <header class="app-header">
+      <h1 class="app-title">☀ Shadow Track</h1>
+      <div class="header-actions">
+        <button id="btn-import" class="icon-btn" title="Import Project (JSON)" aria-label="Import Project">📁</button>
+        <button id="btn-export" class="icon-btn" title="Export Project (JSON)" aria-label="Export Project">💾</button>
+        <button id="btn-download-png" class="icon-btn primary" title="Download PNG" aria-label="Download PNG">📥</button>
+        <button id="btn-share" class="icon-btn" title="Copy Shareable Link" aria-label="Copy Shareable Link">🔗</button>
+        <button id="btn-toggle-theme" class="icon-btn" title="Toggle Dark Mode" aria-label="Toggle Dark Mode">🌓</button>
+      </div>
+    </header>
+
+    <div class="main-grid">
+      <aside class="control-panel" id="controlPanel">
+        <section class="panel-section" id="section-corners">
+          <h2 class="section-title">📐 Plot Corners (A→B→C→D)</h2>
+          <div class="units-toggle">
+            <label><input type="radio" name="units" value="feet" checked> Feet</label>
+            <label><input type="radio" name="units" value="meters"> Meters</label>
+          </div>
+          <div id="corner-inputs" class="corner-grid"></div>
+          <div class="corner-actions">
+            <button id="btn-save-plot" class="btn primary">Save Plot</button>
+            <button id="btn-reset-plot" class="btn secondary">Reset Defaults</button>
+          </div>
+          <div id="corner-errors" class="error-list" aria-live="polite"></div>
+        </section>
+
+        <section class="panel-section" id="section-objects">
+          <h2 class="section-title">🏗 Objects</h2>
+          <div class="object-form" id="objectForm">
+            <div class="form-row form-row--single">
+              <label class="field-label-inline" for="select-obj-type">Type</label>
+              <select class="field-select-regular" id="select-obj-type" aria-label="Object Type">
+                <option value="cylinder">Cylinder</option>
+                <option value="rectangular">Rectangular Prism</option>
+              </select>
+            </div>
+
+            <div id="obj-params-cylinder" class="param-group">
+              <div class="form-row">
+                <label class="field-label-inline" for="obj-x">X</label>
+                <input class="field-number-regular" type="number" id="obj-x" step="0.01" placeholder="X" required>
+                <label class="field-label-inline" for="obj-y">Y</label>
+                <input class="field-number-regular" type="number" id="obj-y" step="0.01" placeholder="Y" required>
+              </div>
+              <div class="form-row" style="display: block;">
+                <label class="field-label-inline" for="obj-height">Height</label>
+                <input class="field-number-regular" type="number" id="obj-height" step="0.01" min="0.01" placeholder="Height" required>
+                <label class="field-label-inline" for="obj-diameter">Diameter</label>
+                <input class="field-number-regular" type="number" id="obj-diameter" step="0.01" min="0.01" placeholder="Diameter" required>
+              </div>
+            </div>
+
+            <div id="obj-params-rectangular" class="param-group hidden">
+              <div class="form-row">
+                <label class="field-label-inline" for="obj-x-rect">X</label>
+                <input class="field-number-regular" type="number" id="obj-x-rect" step="0.01" placeholder="X" required>
+                <label class="field-label-inline" for="obj-y-rect">Y</label>
+                <input class="field-number-regular" type="number" id="obj-y-rect" step="0.01" placeholder="Y" required>
+              </div>
+              <div class="form-row" style="display: block;">
+                <label class="field-label-inline" for="obj-height-rect">Height</label>
+                <input class="field-number-regular" type="number" id="obj-height-rect" step="0.01" min="0.01" placeholder="Height" required>
+                <label class="field-label-inline" for="obj-width">Width</label>
+                <input class="field-number-regular" type="number" id="obj-width" step="0.01" min="0.01" placeholder="Width" required>
+              </div>
+              <div class="form-row" style="display: block;">
+                <label class="field-label-inline" for="obj-length">Length</label>
+                <input class="field-number-regular" type="number" id="obj-length" step="0.01" min="0.01" placeholder="Length" required>
+                <label class="field-label-inline" for="obj-rotation">Rotation</label>
+                <input class="field-number-regular" type="number" id="obj-rotation" step="1" min="0" max="360" value="0" placeholder="Rotation (°)">
+              </div>
+            </div>
+
+            <div class="form-row form-row--single">
+              <label class="field-label-inline" for="obj-label">Label</label>
+              <input class="field-text-regular" type="text" id="obj-label" placeholder="Label (optional)">
+            </div>
+            <div class="form-row form-row--single">
+              <label class="field-label-inline" for="obj-shadow-color">Shadow Color</label>
+              <input class="field-color-regular" type="color" id="obj-shadow-color" value="#808080">
+            </div>
+            <div class="form-actions">
+              <button id="btn-add-object" class="btn primary">Add Object</button>
+              <button id="btn-cancel-edit" class="btn secondary hidden">Cancel Edit</button>
+            </div>
+          </div>
+          <div class="object-list" id="objectList" aria-label="Objects List"></div>
+        </section>
+
+        <section class="panel-section" id="section-time">
+          <h2 class="section-title">⏰ Time & Date</h2>
+          <div class="form-row form-row--single">
+            <label class="field-label-inline" for="select-month">Month</label>
+            <select class="field-select-regular" id="select-month" aria-label="Month"></select>
+          </div>
+          <div class="toggle-row">
+            <label><input type="radio" name="sweepMode" value="sweep" checked> Full-Day Sweep</label>
+            <label><input type="radio" name="sweepMode" value="single"> Single Time</label>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slider-time" min="390" max="1080" step="30" value="720" aria-label="Time of day">
+            <span id="val-time">12:00 PM</span>
+          </div>
+          <p class="section-hint">Slider: 06:30 AM – 06:00 PM, 30-min steps</p>
+        </section>
+
+        <section class="panel-section panel-section--secondary" id="section-location">
+          <h2 class="section-title">📍 Location & Timezone</h2>
+          <div class="input-row">
+            <label class="field-label-inline" for="input-lat">Lat</label>
+            <input class="field-number-compact" type="number" id="input-lat" step="0.000001" value="22.057163" aria-label="Latitude">
+            <label class="field-label-inline" for="input-lon">Lon</label>
+            <input class="field-number-compact" type="number" id="input-lon" step="0.000001" value="78.938101" aria-label="Longitude">
+          </div>
+          <div class="input-row input-row--timezone">
+            <label class="field-label-inline" for="select-timezone">Timezone</label>
+            <select class="field-select-regular" id="select-timezone" aria-label="Timezone"></select>
+            <button id="btn-apply-location" class="btn-small primary" aria-label="Apply Location">Apply</button>
+          </div>
+        </section>
+
+        <section class="panel-section panel-section--secondary" id="section-north">
+          <h2 class="section-title">🧭 North Reference</h2>
+          <p class="section-hint">Angle from negative Y-axis to true north, clockwise.</p>
+          <div class="slider-container">
+            <input type="range" id="slider-north-angle" min="0" max="360" step="5" value="180" aria-label="North reference angle">
+            <span id="val-north-angle">180°</span>
+          </div>
+        </section>
+      </aside>
+
+      <main class="plot-panel">
+        <div id="plotly-div" class="plotly-container" role="img" aria-label="Shadow simulation plot"></div>
+        <div class="plot-status" id="plotStatus" aria-live="polite">Ready</div>
+      </main>
+    </div>
+
+    <div id="measure-tooltip" class="measure-tooltip hidden" aria-hidden="true"></div>
+
+    <div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-content">
+        <h3 id="modal-title">Confirm</h3>
+        <p id="modal-message"></p>
+        <div class="modal-actions">
+          <button id="modal-cancel" class="btn secondary">Cancel</button>
+          <button id="modal-confirm-btn" class="btn danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="helpFab" class="help-fab" aria-label="Open help">?</button>
+
+    <div id="helpModal" class="help-modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="help-modal__card">
+        <div class="help-modal__header">
+          <h3 id="help-title">Help & Tips</h3>
+          <button id="helpClose" class="icon-btn" aria-label="Close help">✕</button>
+        </div>
+        <div class="help-modal__body">
+          <div class="help-block">
+            <h4>Shortcuts</h4>
+            <ul class="help-list">
+              <li><kbd>←</kbd> / <kbd>→</kbd> change time by 30 minutes</li>
+              <li><kbd>↑</kbd> / <kbd>↓</kbd> change month</li>
+              <li><kbd>Del</kbd> delete selected object</li>
+              <li><kbd>E</kbd> edit selected object</li>
+            </ul>
+          </div>
+          <div class="help-block">
+            <h4>Plot tips</h4>
+            <ul class="help-list">
+              <li>Save Plot validates corners only when you click Save Plot.</li>
+              <li>Use Full-Day Sweep for overview and Single Time for exact checks.</li>
+              <li>Objects outside the plot are ignored in the simulation.</li>
+              <li>Export and import JSON to save and reuse scenarios.</li>
+            </ul>
+          </div>
+          <div class="help-block">
+            <h4>Legend</h4>
+            <ul class="help-list">
+              <li>Cylinder uses diameter.</li>
+              <li>Rectangular prism uses width, length, and rotation.</li>
+              <li>North reference controls shadow direction relative to the plot.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
